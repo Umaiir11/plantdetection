@@ -12,8 +12,6 @@ import 'package:flutter/services.dart' show rootBundle;
 import '../../configs/constants.dart';
 import '../model/model.dart';
 
-
-
 class HomeController extends GetxController {
   Interpreter? _interpreter;
   String? recognizedLabel = '';
@@ -27,6 +25,32 @@ class HomeController extends GetxController {
     loadModel();
     loadLabels();
   }
+
+
+  Future<bool> captureImage() async {
+    final cameraPermission = await requestCameraPermission();
+    if (cameraPermission.isGranted) {
+      pickedImage = await ImagePicker().pickImage(source: ImageSource.camera);
+
+      if (pickedImage != null) {
+        image = File(pickedImage!.path);
+        await runModel(File(pickedImage!.path));
+        return true;
+      } else {
+        debugPrint("Image capture canceled by the user");
+        return false;
+      }
+    } else {
+      debugPrint("Camera permission not granted");
+      return false;
+    }
+  }
+
+  Future<PermissionStatus> requestCameraPermission() async {
+    return await Permission.camera.request();
+  }
+
+
 
   Future<void> loadModel() async {
     log('Loading interpreter options...');
@@ -86,7 +110,8 @@ class HomeController extends GetxController {
 
     List<dynamic> inputTensor = List.generate(inputShape[0], (_) => input).reshape(inputShape);
     List<int> outputShape = _interpreter!.getOutputTensor(0).shape;
-    List<List<double>> output = List<List<double>>.generate(outputShape[0], (_) => List<double>.filled(outputShape[1], 0.0));
+    List<List<double>> output =
+        List<List<double>>.generate(outputShape[0], (_) => List<double>.filled(outputShape[1], 0.0));
     _interpreter!.run(inputTensor, output);
     recognizedLabel = processOutput(output)!;
 
@@ -105,24 +130,30 @@ class HomeController extends GetxController {
       }
     }
 
-    if (maxConfidence > 0.5) { // You can adjust the threshold value
+    if (maxConfidence > 0.100) {
+      // You can adjust the threshold value
       String label = labels[predictedClassIndex];
       DetectedObject detectedObject = DetectedObject(label, (maxConfidence * 100).toStringAsFixed(2));
-      return recognizedLabel = '$label (Confidence: ${(maxConfidence * 100).toStringAsFixed(2)})'; // Combine label and confidence
+      return recognizedLabel =
+          '$label (Confidence: ${(maxConfidence * 100).toStringAsFixed(2)})'; // Combine label and confidence
     } else {
-      return recognizedLabel = 'This image data is currently outside my area of expertise. Try uploading an image of a flower!';
+      return recognizedLabel =
+          'This image data is currently outside my area of expertise. Try uploading an image of a flower!';
     }
   }
 
   List<double> preprocessImage(Uint8List imageBytes) {
     final image = img.decodeImage(imageBytes);
     final resizedImage = img.copyResize(image!, width: 224, height: 224);
-    final normalizedPixels = resizedImage.data.map((pixel) {
-      final r = (img.getRed(pixel) / 255.0);
-      final g = (img.getGreen(pixel) / 255.0);
-      final b = (img.getBlue(pixel) / 255.0);
-      return [r, g, b];
-    }).expand((i) => i).toList();
+    final normalizedPixels = resizedImage.data
+        .map((pixel) {
+          final r = (img.getRed(pixel) / 255.0);
+          final g = (img.getGreen(pixel) / 255.0);
+          final b = (img.getBlue(pixel) / 255.0);
+          return [r, g, b];
+        })
+        .expand((i) => i)
+        .toList();
 
     return normalizedPixels;
   }

@@ -22,10 +22,21 @@ class HomePage extends StatelessWidget {
         centerTitle: true,
       ),
       backgroundColor: Colors.black,
-      floatingActionButton: FloatingActionButton(
-        onPressed: controller.pickImage,
-        child: const Icon(Icons.image, color: Colors.black),
-        backgroundColor: Colors.white,
+      floatingActionButton: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            onPressed: controller.pickImage,
+            child: const Icon(Icons.image, color: Colors.black),
+            backgroundColor: Colors.white,
+          ),
+          const SizedBox(width: 10.0),
+          FloatingActionButton(
+            onPressed: controller.captureImage,
+            child: const Icon(Icons.camera_alt, color: Colors.black),
+            backgroundColor: Colors.white,
+          ),
+        ],
       ),
       body: SafeArea(
         child: Center(
