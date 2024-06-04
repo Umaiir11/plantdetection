@@ -1,8 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
 import 'controller.dart';
 
 class HomePage extends StatelessWidget {
@@ -11,87 +8,74 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[800], // Maintain a sleek dark background
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        title: Text(
+          'AI Flower Recognition',
+          style: TextStyle(
+            fontSize: 20.0,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'ProductSans',
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      backgroundColor: Colors.black,
+      floatingActionButton: FloatingActionButton(
+        onPressed: controller.pickImage,
+        child: const Icon(Icons.image, color: Colors.black),
+        backgroundColor: Colors.white,
+      ),
       body: SafeArea(
-        child: SingleChildScrollView( // Allow content to scroll if needed
+        child: Center(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0), // Consistent padding
+            padding: const EdgeInsets.all(24.0),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center, // Center content horizontally
+            crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Title with a prominent Google AI-inspired font
-                Text(
-                  'AI Image Recognition',
-                  style: TextStyle(
-                    fontSize: 32.0,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'ProductSans', // Modern Google font
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 20.0), // Consistent spacing
-
-                // Image section with professional presentation
-                Stack(
-                  alignment: Alignment.center, // Center content within stack
-                  children: [
-                    // Container with rounded corners for image background
-                    Container(
-                      width: MediaQuery.of(context).size.width * 0.7, // Adaptive image size
-                      height: MediaQuery.of(context).size.width * 0.7, // Maintain aspect ratio
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16.0),
-                        color: Colors.grey[200], // Subtle background for non-picked state
-                      ),
-                      child: ClipRRect( // Clip image within rounded container
-                        borderRadius: BorderRadius.circular(16.0),
-                        child: GetBuilder<HomeController>(
-                          builder: (_) => controller.image != null
-                              ? Image.file( controller.image! )
-                              : const Center(
-                            child: Text(
-                              'No image picked yet.',
-                              style: TextStyle(color: Colors.grey),
+                GetBuilder<HomeController>(
+                  builder: (_) => controller.image != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(16.0),
+                          child: Image.file(height: 550, width: 400,  controller.image!),
+                        )
+                      : Center(
+                        child: const Text(
+                            'Please pick an image',
+                            style: TextStyle(
+                              fontFamily: 'ProductSans',
+                              fontSize: 18.0,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white70,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 5.0,
+                                  color: Colors.white38,
+                                  offset: Offset(1.0, 1.0),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
                       ),
-                    ),
-
-                    // Pick image button with a hover effect (optional)
-                    ElevatedButton(
-                      onPressed: controller.pickImage,
-                      style: ElevatedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(50.0), // Circular button
-                        ), backgroundColor: Colors.blue,
-                        padding: const EdgeInsets.all(16.0), // Maintain consistent color scheme
-                      ),
-                      child: const Icon(Icons.image, color: Colors.white),
-                    ),
-                  ],
                 ),
+                const SizedBox(height: 10.0),
 
-                const SizedBox(height: 20.0), // Spacing between image and prediction
-
-                // Prediction text with a subtle glow, inspired by Google AI style
                 GetBuilder<HomeController>(
                   builder: (_) => Text(
-                    controller.recognizedLabel != null &&
-                        controller.recognizedLabel!.isNotEmpty
-                        ? 'Prediction: ${controller.recognizedLabel}'
+                    controller.recognizedLabel?.isNotEmpty ?? false
+                        ?'${controller.recognizedLabel!}'
                         : '',
                     style: TextStyle(
-                      fontFamily: 'ProductSans', // Modern Google font
-                      fontSize: 20.0,
+                      fontFamily: 'ProductSans',
+                      fontSize: 15.0,
                       fontWeight: FontWeight.w500,
                       color: Colors.white,
                       shadows: [
                         Shadow(
                           blurRadius: 5.0,
-                          color: Colors.white70,
-                          offset: const Offset(1.0, 1.0),
+                          color: Colors.white38,
+                          offset: Offset(1.0, 1.0),
                         ),
                       ],
                     ),
