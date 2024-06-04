@@ -21,6 +21,9 @@ const String _modelPath = 'assets/plant_classification_model.tflite';
 class HomeController extends GetxController {
   List<DetectedObject> recognitionsList = [];
   Interpreter? _interpreter;
+  String? recognizedLabel = '';
+  XFile? pickedImage;
+  File? image;
 
   @override
   void onInit() {
@@ -49,10 +52,11 @@ class HomeController extends GetxController {
   Future<bool> pickImage() async {
     final storagePermission = await requestStoragePermission();
     if (storagePermission.isGranted) {
-      final pickedImage = await ImagePicker().pickImage(source: ImageSource.gallery);
+    pickedImage = await ImagePicker().pickImage(source: ImageSource.gallery);
 
       if (pickedImage != null) {
-        await runModel(File(pickedImage.path));
+        image = File(pickedImage!.path);
+        await runModel(File(pickedImage!.path));
         return true;
       } else {
         debugPrint("Image picking canceled by the user");
@@ -63,6 +67,8 @@ class HomeController extends GetxController {
       return false;
     }
   }
+
+
 
   Future<PermissionStatus> requestStoragePermission() async {
     return await Permission.photos.request();
@@ -94,28 +100,37 @@ class HomeController extends GetxController {
     _interpreter!.run(inputTensor, output);
 
     // Process the output
-    recognitionsList = processOutput(output);
+    recognizedLabel = processOutput(output)!;
 
     update();
   }
 
-  List<DetectedObject> processOutput(List<List<double>> output) {
-    List<DetectedObject> detectedObjects = [];
+  String? processOutput(List<List<double>> output) {
+
 
     // Assuming output shape [1, 5]
+    int predictedClassIndex = 0;
+    double maxConfidence = 0.0;
+
     for (var i = 0; i < output[0].length; i++) {
-      String label = _getLabel(i);
       double confidence = output[0][i];
-      detectedObjects.add(DetectedObject(label, confidence));
+      if (confidence > maxConfidence) {
+        maxConfidence = confidence;
+        predictedClassIndex = i;
+      }
     }
 
-    detectedObjects.sort((a, b) => b.confidence.compareTo(a.confidence));
 
-    return detectedObjects;
+    if (maxConfidence > 0.5) { // You can adjust the threshold value
+      String label = _getLabel(predictedClassIndex);
+      return  recognizedLabel = '$label (Confidence:  ${(maxConfidence * 100).toStringAsFixed(2)})'; // Combine label and confidence
+    } else {
+       return recognizedLabel = 'Unidentified';
+    }
   }
 
+
   String _getLabel(int index) {
-    // Define your labels according to the model's output
     const labels = ["Daisy", "Dandelion", "Rose", "Sunflower", "Tulip"];
     return labels[index];
   }
