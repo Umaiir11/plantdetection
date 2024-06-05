@@ -24,6 +24,7 @@ class HomeController extends GetxController {
     super.onInit();
     loadModel();
     loadLabels();
+
   }
 
 
