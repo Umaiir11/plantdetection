@@ -14,7 +14,7 @@ import '../model/model.dart';
 
 class HomeController extends GetxController {
   Interpreter? _interpreter;
-  String? recognizedLabel = '';
+  String? recognizedLabel;
   XFile? pickedImage;
   File? image;
   List<String> labels = [];
@@ -24,9 +24,32 @@ class HomeController extends GetxController {
     super.onInit();
     loadModel();
     loadLabels();
-
   }
 
+  Future<void> loadModel() async {
+    try {
+      final interpreterOptions = InterpreterOptions();
+      if (Platform.isAndroid) {
+        interpreterOptions.addDelegate(XNNPackDelegate());
+      } else if (Platform.isIOS) {
+        interpreterOptions.addDelegate(GpuDelegate());
+      }
+      _interpreter = await Interpreter.fromAsset(AppConstants.modelPath, options: interpreterOptions);
+      debugPrint('Interpreter loaded successfully');
+    } catch (e) {
+      debugPrint('Failed to load interpreter: $e');
+    }
+  }
+
+  Future<void> loadLabels() async {
+    try {
+      final String labelsData = await rootBundle.loadString(AppConstants.labelpath);
+      labels = labelsData.split('\n').map((label) => label.trim()).where((label) => label.isNotEmpty).toList();
+      debugPrint('Labels loaded: $labels');
+    } catch (e) {
+      debugPrint('Failed to load labels: $e');
+    }
+  }
 
   Future<bool> captureImage() async {
     final cameraPermission = await requestCameraPermission();
@@ -35,7 +58,7 @@ class HomeController extends GetxController {
 
       if (pickedImage != null) {
         image = File(pickedImage!.path);
-        await runModel(File(pickedImage!.path));
+        await runModel(image!);
         return true;
       } else {
         debugPrint("Image capture canceled by the user");
@@ -51,26 +74,8 @@ class HomeController extends GetxController {
     return await Permission.camera.request();
   }
 
-
-
-  Future<void> loadModel() async {
-    log('Loading interpreter options...');
-    final interpreterOptions = InterpreterOptions();
-    if (Platform.isAndroid) {
-      interpreterOptions.addDelegate(XNNPackDelegate());
-    }
-    if (Platform.isIOS) {
-      interpreterOptions.addDelegate(GpuDelegate());
-    }
-
-    log('Loading interpreter...');
-    _interpreter = await Interpreter.fromAsset(AppConstants.modelPath, options: interpreterOptions);
-  }
-
-  Future<void> loadLabels() async {
-    final String labelsData = await rootBundle.loadString(AppConstants.labelpath);
-    labels = labelsData.split('\n').map((label) => label.trim()).where((label) => label.isNotEmpty).toList();
-    log('Labels loaded: $labels');
+  Future<PermissionStatus> requestStoragePermission() async {
+    return await Permission.photos.request();
   }
 
   Future<bool> pickImage() async {
@@ -80,7 +85,7 @@ class HomeController extends GetxController {
 
       if (pickedImage != null) {
         image = File(pickedImage!.path);
-        await runModel(File(pickedImage!.path));
+        await runModel(image!);
         return true;
       } else {
         debugPrint("Image picking canceled by the user");
@@ -92,55 +97,42 @@ class HomeController extends GetxController {
     }
   }
 
-  Future<PermissionStatus> requestStoragePermission() async {
-    return await Permission.photos.request();
-  }
-
   Future<void> runModel(File imageFile) async {
     if (_interpreter == null) {
-      await loadModel();
-      if (_interpreter == null) {
-        print("Failed to load model!");
-        return;
-      }
+      debugPrint('Interpreter not initialized');
+      return;
     }
-    final Uint8List imageBytes = await imageFile.readAsBytes();
-    final List<double> input = preprocessImage(imageBytes);
-    const List<int> _inputShape = [1, 224, 224, 3];
-    var inputShape = _inputShape;
 
-    List<dynamic> inputTensor = List.generate(inputShape[0], (_) => input).reshape(inputShape);
-    List<int> outputShape = _interpreter!.getOutputTensor(0).shape;
-    List<List<double>> output =
-        List<List<double>>.generate(outputShape[0], (_) => List<double>.filled(outputShape[1], 0.0));
+    try {
+      final Uint8List imageBytes = await imageFile.readAsBytes();
+      final input = preprocessImage(imageBytes);
+      final output = await infer(input);
+      recognizedLabel = processOutput(output);
+      update();
+    } catch (e) {
+      debugPrint('Error running model: $e');
+    }
+  }
+
+  Future<List<List<double>>> infer(List<double> input) async {
+    const inputShape = [1, 224, 224, 3];
+    final inputTensor = input.reshape(inputShape);
+    final outputShape = _interpreter!.getOutputTensor(0).shape;
+    final output = List<List<double>>.generate(outputShape[0], (_) => List<double>.filled(outputShape[1], 0.0));
     _interpreter!.run(inputTensor, output);
-    recognizedLabel = processOutput(output)!;
-
-    update();
+    return output;
   }
 
   String? processOutput(List<List<double>> output) {
-    int predictedClassIndex = 0;
-    double maxConfidence = 0.0;
+    const threshold = 0.80;
+    final maxConfidence = output[0].reduce((a, b) => a > b ? a : b);
 
-    // Find the index with the maximum confidence
-    for (int i = 0; i < output[0].length; i++) {
-      double confidence = output[0][i];
-      if (confidence > maxConfidence) {
-        maxConfidence = confidence;
-        predictedClassIndex = i;
-      }
-    }
-
-    // Check if the maximum confidence is greater than or equal to 70%
-    if (maxConfidence >= 0.70) {
-      String label = labels[predictedClassIndex];
-      DetectedObject detectedObject = DetectedObject(label, (maxConfidence * 100).toStringAsFixed(2));
-      return recognizedLabel =
-      '$label (Confidence: ${(maxConfidence * 100).toStringAsFixed(2)})'; // Combine label and confidence
+    if (maxConfidence >= threshold) {
+      final predictedClassIndex = output[0].indexOf(maxConfidence);
+      final label = labels[predictedClassIndex];
+      return '$label (Confidence: ${(maxConfidence * 100).toStringAsFixed(2)})';
     } else {
-      return recognizedLabel =
-      'This image data is currently outside my area of expertise. Try uploading an image of a flower!';
+      return 'This image data is currently outside my area of expertise. Try uploading an image of a flower!';
     }
   }
 
@@ -148,21 +140,15 @@ class HomeController extends GetxController {
     final image = img.decodeImage(imageBytes);
     final resizedImage = img.copyResize(image!, width: 224, height: 224);
     final normalizedPixels = resizedImage.data
-        .map((pixel) {
-          final r = (img.getRed(pixel) / 255.0);
-          final g = (img.getGreen(pixel) / 255.0);
-          final b = (img.getBlue(pixel) / 255.0);
-          return [r, g, b];
-        })
+        .map((pixel) => [img.getRed(pixel) / 255.0, img.getGreen(pixel) / 255.0, img.getBlue(pixel) / 255.0])
         .expand((i) => i)
         .toList();
-
     return normalizedPixels;
   }
 
   @override
   void onClose() {
-    super.onClose();
     _interpreter?.close();
+    super.onClose();
   }
 }
