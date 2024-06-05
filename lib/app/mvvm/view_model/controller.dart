@@ -123,6 +123,7 @@ class HomeController extends GetxController {
     int predictedClassIndex = 0;
     double maxConfidence = 0.0;
 
+    // Find the index with the maximum confidence
     for (int i = 0; i < output[0].length; i++) {
       double confidence = output[0][i];
       if (confidence > maxConfidence) {
@@ -131,15 +132,15 @@ class HomeController extends GetxController {
       }
     }
 
-    if (maxConfidence > 0.100) {
-      // You can adjust the threshold value
+    // Check if the maximum confidence is greater than or equal to 70%
+    if (maxConfidence >= 0.70) {
       String label = labels[predictedClassIndex];
       DetectedObject detectedObject = DetectedObject(label, (maxConfidence * 100).toStringAsFixed(2));
       return recognizedLabel =
-          '$label (Confidence: ${(maxConfidence * 100).toStringAsFixed(2)})'; // Combine label and confidence
+      '$label (Confidence: ${(maxConfidence * 100).toStringAsFixed(2)})'; // Combine label and confidence
     } else {
       return recognizedLabel =
-          'This image data is currently outside my area of expertise. Try uploading an image of a flower!';
+      'This image data is currently outside my area of expertise. Try uploading an image of a flower!';
     }
   }
 

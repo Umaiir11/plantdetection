@@ -45,5 +45,5 @@ flutter:
 
   assets:
 
-    - assets/plant_classification_model.tflite
+    - assets/flower_classification_model.tflite
     - assets/labels.txt
